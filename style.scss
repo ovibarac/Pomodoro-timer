@@ -1,0 +1,109 @@
+$bgColor: #d95550;
+$breakColor: #52D452;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@100&display=swap');
+// @import url('https://emoji-css.afeld.me/emoji.css');
+
+body{
+  margin: auto;
+  align-items: center;
+  text-align: center;
+  color: white;
+  background: $bgColor;
+  
+  // font-family: 'Inconsolata', monospace;
+  #app{
+    
+    margin: 0;
+    #timer{
+
+      #title{
+        font-size: 50px;
+      }
+      
+      .bold{
+        font-weight: bold;
+      }
+      
+      .timer-control{
+        display: inline-block;
+        position:relative;
+        padding: 10px;
+        font-size: 1.5em;
+        
+        #session-label, #break-label, #long-break-label{
+          // color: lighten($bgColor, 30%);
+          opacity: 0.7;
+        }
+        
+        #session-length, #break-length, #long-break-length{
+          //bring length closer to arrows
+          margin-top: -7px;
+          margin-bottom: -7px;
+        }
+      }
+      
+      button {
+        background: none;
+        outline: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        i{
+          font-size: 0.9em;  
+        }
+        
+      }
+      
+      //button press animation
+      button:active {
+        transform: translateY(3px);
+        
+      }
+      
+      #countdown{
+        margin-top: 50px;
+        #reset, #skip{
+          font-size: 2em;
+          margin: 5px;
+          
+        }
+        #skip{
+          padding-left: 20px;
+        }
+
+        #timer-label{
+          font-size: 2em;
+          margin-bottom: -60px;
+          opacity: 0.7;
+          #sesh-nb{
+            font-size: 0.8em;
+          }
+        }
+
+        #time-left{
+          font-size: 10em;
+        }
+
+        #start_stop{
+          text-align: center;
+          height: 65px;
+          width: 185px;
+          line-height: 65px;
+          cursor: pointer;
+          font-size: 27px;
+          letter-spacing: 2px;
+          color: $bgColor;
+          border-radius: 10px;
+          border-bottom: 4px solid darken(#F0F0F0, 20%);
+          user-select: none;
+          background: #F0F0F0;
+          transition: background 0.05s linear;
+          transition: all .05s linear;
+          font-weight: bold;
+        }
+      }
+      
+    }
+  }
+}

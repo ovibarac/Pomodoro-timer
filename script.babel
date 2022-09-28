@@ -1,0 +1,547 @@
+/*
+Interactive pomodoro timer with customizable session, short break and long break timers
+*/
+
+
+const accurateInterval = function (fn, time) {
+  //call fn at an interval of time and correct for errors
+  var cancel, nextAt, timeout, wrapper;
+  nextAt = new Date().getTime() + time;
+  timeout = null;
+  wrapper = function () {
+    nextAt += time;
+    timeout = setTimeout(wrapper, nextAt - new Date().getTime());
+    return fn();//updates countdown
+  };
+  cancel = function() {
+    return clearTimeout(timeout);
+  };
+  timeout = setTimeout(wrapper, nextAt - new Date().getTime());
+
+  return {
+    cancel: cancel
+  };
+};
+
+
+//Redux: 
+
+const defaultState={
+  sessionLen: 25,
+  breakLen: 5,
+  longBrLen: 10,
+  timerType: 'session', //or short break, long break 
+  timerState: 'stopped', //or running
+  timer: 1500, //timer time in seconds
+  intervalID: '' //for time calculation
+};
+
+//actions:
+const SET='SET';
+const RESET='RESET';
+const SETSESH='SETSESH';
+const SETSHBR='SETSHBR';
+const SETLGBR='SETLGBR';
+const SETINTID='SETINTID';
+const SETTIMER='SETTIMER';
+const SETTIMERSTATE='SETTIMERSTATE';
+
+const doSet=(newState)=>{
+  return{
+    type: SET,
+    state: newState
+  }
+}
+
+const doReset=()=>{
+  return{
+    type: RESET,
+  }
+}
+
+const doSetSession=(newState)=>{
+  return{
+    type: SETSESH,
+    state: newState
+  }
+}
+
+const doSetShortBreak=(newState)=>{
+  return{
+    type: SETSHBR,
+    state: newState
+  }
+}
+
+const doSetLongBreak=(newState)=>{
+  return{
+    type: SETLGBR,
+    state: newState
+  }
+}
+
+const doSetTimer=(newState)=>{
+  return{
+    type: SETTIMER,
+    state: newState
+  }
+}
+
+const doSetIntervalID=(newState)=>{
+  return{
+    type: SETINTID,
+    state: newState
+  }
+}
+
+const doSetTimerState=(newState)=>{
+  return{
+    type: SETTIMERSTATE,
+    state: newState
+  }
+}
+
+const reducer=(state=defaultState, action)=>{
+  switch(action.type){
+    case SET:
+      //set the whole state
+      return action.state;
+    case SETSESH:
+      //set only the session length
+      return{
+        sessionLen: action.state,
+        breakLen: state.breakLen,
+        longBrLen: state.longBrLen,
+        timerType: state.timerType,
+        timerState: state.timerState,
+        timer: state.timer,
+        intervalID: state.intervalID
+      }
+    case SETSHBR:
+      //set only the short break length
+      return{
+        sessionLen: state.sessionLen,
+        breakLen: action.state,
+        longBrLen: state.longBrLen,
+        timerType: state.timerType,
+        timerState: state.timerState,
+        timer: state.timer,
+        intervalID: state.intervalID
+      }
+    case SETLGBR:
+      //set only the long break length
+      return{
+        sessionLen: state.sessionLen,
+        breakLen: state.breakLen,
+        longBrLen: action.state,
+        timerType: state.timerType,
+        timerState: state.timerState,
+        timer: state.timer,
+        intervalID: state.intervalID
+      }
+    case SETTIMERSTATE:
+      //set timerState
+      return{
+        sessionLen: state.sessionLen,
+        breakLen: state.breakLen,
+        longBrLen: state.longBrLen,
+        timerType: state.timerType,
+        timerState: action.state,
+        timer: state.timer,
+        intervalID: state.intervalID
+      }
+    case SETTIMER:
+      return{
+        sessionLen: state.sessionLen,
+        breakLen: state.breakLen,
+        longBrLen: state.longBrLen,
+        timerType: state.timerType,
+        timerState: state.timerState,
+        timer: action.state,
+        intervalID: state.intervalID
+      }
+    case SETINTID:
+      //set intervalID
+      return{
+        sessionLen: state.sessionLen,
+        breakLen: state.breakLen,
+        longBrLen: state.longBrLen,
+        timerType: state.timerType,
+        timerState: state.timerState,
+        timer: state.timer,
+        intervalID: action.state
+      }
+    case RESET:
+      return defaultState;
+    default:
+      return state;
+  }
+}
+
+const store = Redux.createStore(reducer);
+    
+//React:
+
+class TimerControl extends React.Component{
+  //general timer settings for session, short break and long break
+  constructor(props){
+    super(props);
+  }
+  
+  render(){
+    return(
+      <div className="timer-control">
+        <div id={this.props.titleId}>{this.props.title}</div>
+        <button
+          id={this.props.incId}
+          onClick={this.props.onClick}
+          value='+'
+        >
+          <i className="fa fa-arrow-up fa-2x" />
+        </button>
+        <div id={this.props.lengthId}>
+          {this.props.length}
+        </div>
+        <button
+          id={this.props.decId}
+          onClick={this.props.onClick}
+          value='-'
+        >
+          <i className="fa fa-arrow-down fa-2x" />
+        </button>
+      </div>
+    )
+  }
+}
+
+
+
+class Timer extends React.Component{
+  constructor(props){
+    super(props);
+    
+    this.state={
+      intervalID: '',
+      pomodoroCount: 0,
+      nbForLongBreak: 4,
+    }
+    
+    this.lengthControl = this.lengthControl.bind(this);
+    this.setSeshLength = this.setSeshLength.bind(this);
+    this.setShortBrLength = this.setShortBrLength.bind(this);
+    this.setLongBrLength = this.setLongBrLength.bind(this);
+    this.resetTimer = this.resetTimer.bind(this);
+    this.clockify = this.clockify.bind(this);
+    this.decrementTimer = this.decrementTimer.bind(this);
+    this.switchTimer = this.switchTimer.bind(this);
+    this.beginCountDown = this.beginCountDown.bind(this);
+    this.timerControl = this.timerControl.bind(this);
+    this.phaseControl = this.phaseControl.bind(this);
+    this.skip = this.skip.bind(this);
+  }
+  
+  componentDidMount(){
+    //set up button sounds
+    $(document).ready(function(){
+      var audio  = new Audio('https://s3-us-west-2.amazonaws.com/s.cdpn.io/242518/click.mp3');
+      var audio2 = new Audio('https://s3-us-west-2.amazonaws.com/s.cdpn.io/242518/clickUp.mp3')
+
+      $("button").mousedown(function() {
+        audio2.load();
+        audio2.play();
+      });
+
+      $("button").mouseup(function() {
+        audio.load();
+        audio.play();
+      });
+    });
+  }
+ 
+  //SETTINGS LOGIC:
+  
+  setSeshLength(e){
+    this.lengthControl('sessionLen', e.currentTarget.value, this.props.sessionLen, this.props.dispatchSetSession, 'session');
+  }
+  
+  setShortBrLength(e){
+    this.lengthControl('breakLen', e.currentTarget.value, this.props.breakLen, this.props.dispatchSetShortBreak, 'short break');
+  }
+  
+  setLongBrLength(e){
+    this.lengthControl('longBrLen', e.currentTarget.value, this.props.longBrLen, this.props.dispatchSetLongBreak, 'long break');
+  }
+  
+  lengthControl(stateToChange, sign, currentLen, dispatchFunct, timerType){
+    /*
+    change length settings
+      stateToChange: string of which state to change
+      sign: the value of the pressed button
+      currentLen: current value of the 'stateToChange' length
+      dispatchFunct: function to dispatch apropriate value to reducer
+    */
+    
+    //don't change values while timer is running
+    if(this.props.timerState === 'running'){
+      return;
+    }
+    
+    if(sign ==='-' && currentLen > 1){
+      dispatchFunct(currentLen - 1);
+      if(timerType === this.props.timerType)
+        this.props.dispatchSetTimer(currentLen * 60 - 60);
+    }else if(sign ==='+'){
+      dispatchFunct(currentLen + 1);
+      if(timerType === this.props.timerType)
+        this.props.dispatchSetTimer(currentLen * 60 + 60);
+    }
+  }
+  
+  //TIMER LOGIC:
+  
+  timerControl(){
+    //pause and start timer
+    
+    if(this.props.timerState === 'stopped'){
+      this.props.dispatchSetTimerState('running');
+      this.beginCountDown();
+    }else{
+      this.props.dispatchSetTimerState('stopped');
+      if (this.state.intervalID) {
+        this.state.intervalID.cancel();
+      }
+    }
+  }
+  
+  beginCountDown(){
+    //set intervalID to an object with a function that calls decrementTimer and phaseControl every second
+    this.setState({
+      intervalID: accurateInterval(() => {
+        this.decrementTimer();
+        this.phaseControl();
+      }, 1000)
+    });
+  }
+  
+  decrementTimer(){
+    const newTime=this.props.timer-1;
+    this.props.dispatchSetTimer(newTime);
+  }
+  
+  phaseControl(){
+    //count down and switch timer type when necessary
+    let timer = this.props.timer;
+    this.buzzer(timer);
+    if(timer < 0){
+      if(this.state.intervalID){
+        this.state.intervalID.cancel();
+      }
+      if(this.props.timerType === 'session'){
+        this.beginCountDown();
+        this.setState({
+          pomodoroCount: this.state.pomodoroCount+1
+        })
+        //after nbForLongBreak=4 sessions do a long break
+        if(this.state.pomodoroCount % this.state.nbForLongBreak === 0 && this.state.pomodoroCount !== 0){
+          this.switchTimer(this.props.longBrLen * 60, 'long break')
+        }else{
+          this.switchTimer(this.props.breakLen * 60, 'short break')
+        }
+        
+      }else if(this.props.timerType === 'short break'){
+        this.beginCountDown();
+        this.switchTimer(this.props.sessionLen * 60, 'session');
+      }else if(this.props.timerType === 'long break'){
+        this.beginCountDown();
+        this.switchTimer(this.props.sessionLen * 60, 'session');
+
+      }
+    }
+  }
+  
+  switchTimer(num, str){
+    //switch timer type to str and value to num
+    this.props.dispatchSetState({
+      sessionLen: this.props.sessionLen,
+      breakLen: this.props.breakLen,
+      longBrLen: this.props.longBrLen,
+      timerType: str,
+      timerState: this.props.timerState,
+      timer: num
+    });
+  }
+  
+  buzzer(_timer) {
+    if (_timer === 0) {
+      this.audioBeep.play();
+    }
+  }
+  
+  resetTimer(){
+    //stop timer
+    if(this.state.intervalID){
+      this.state.intervalID.cancel();
+    }
+    //reset values
+    this.props.dispatchReset();
+    this.setState({
+      pomodoroCount: 0
+    })
+    this.audioBeep.pause();
+    this.audioBeep.currentTime = 0;
+  }
+  
+  skip(){
+    //skip current section
+    if(this.props.timerState === 'running')
+      this.props.dispatchSetTimer(0);
+  }
+  
+  clockify() {
+    //turn state timer into displayable string
+    if (this.props.timer < 0) 
+      return "00:00";
+    let minutes = Math.floor(this.props.timer / 60);
+    let seconds = this.props.timer - minutes * 60;
+    seconds = seconds < 10 ? '0' + seconds : seconds;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+    return minutes + ':' + seconds;
+  }
+
+  render(){
+    return(
+      <div id="timer" className='animateToGreen'>
+        <audio
+          id="beep"
+          preload="auto"
+          ref={(audio) => {
+            this.audioBeep = audio;
+          }}
+          src="https://cdn.pixabay.com/audio/2022/01/18/audio_b9ed82666f.mp3"
+        />
+        <p id="title"><span className="bold">pomodoro</span> timer</p>
+        <div id="settings">
+          <TimerControl 
+            id="session"
+            titleId="session-label"
+            title="session"
+            decId="session-decrement"
+            incId="session-increment"
+            lengthId="session-length"
+            length={this.props.sessionLen}
+            onClick={this.setSeshLength}
+          />
+          <TimerControl 
+            id="short-break"
+            titleId="break-label"
+            title="short break"
+            decId="break-decrement"
+            incId="break-increment"
+            lengthId="break-length"
+            length={this.props.breakLen}
+            onClick={this.setShortBrLength}
+          />
+          <TimerControl 
+            id="long-break"
+            titleId="long-break-label"
+            title="long break"
+            decId="long-break-decrement"
+            incId="long-break-increment"
+            lengthId="long-break-length"
+            length={this.props.longBrLen}
+            onClick={this.setLongBrLength}
+          />
+        </div>
+        <div id="countdown">
+          <div id="timer-label">
+            {this.props.timerType}
+            <span id="sesh-nb" className="bold">{this.props.timerType === 'session' ? (' ' + '#' + (this.state.pomodoroCount+1)) : ''}</span>
+          </div>
+          
+          <div id="time-left">
+            {this.clockify()}
+          </div>
+          <button 
+            id="start_stop" 
+            className="bold" 
+            onClick={this.timerControl}
+          >
+            {this.props.timerState === 'stopped' ? 'start' : 'pause'}
+          </button>
+          <button 
+            id="skip" 
+            onClick={this.skip}
+            >
+            <i className="fa fa-step-forward fa-2x" />
+          </button>
+          <button 
+            id="reset" 
+            onClick={this.resetTimer}
+            >
+            <i className="fa fa-repeat fa-2x" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+}
+
+//React-Redux
+const Provider = ReactRedux.Provider;
+const connect = ReactRedux.connect;
+
+const mapStateToProps=(state)=>{
+  return{
+    sessionLen: state.sessionLen,
+    breakLen: state.breakLen,
+    longBrLen: state.longBrLen,
+    timerType: state.timerType,
+    timerState: state.timerState,
+    timer: state.timer,
+    intervalID: state.intervalID
+  }
+}
+
+const mapDispatchToProps=(dispatch)=>{
+  return{
+    dispatchSetState: (newState)=>{
+      dispatch(doSet(newState))
+    },
+    dispatchSetSession: (newState)=>{
+      dispatch(doSetSession(newState))
+    },
+    dispatchSetShortBreak: (newState)=>{
+      dispatch(doSetShortBreak(newState))
+    },
+    dispatchSetLongBreak: (newState)=>{
+      dispatch(doSetLongBreak(newState))
+    },
+    dispatchReset: ()=>{
+      dispatch(doReset())
+    },
+    dispatchSetTimer:(newState)=>{
+      dispatch(doSetTimer(newState))
+    },
+    dispatchSetIntervalID: (newState)=>{
+      dispatch(doSetIntervalID(newState))
+    },
+    dispatchSetTimerState: (newState)=>{
+      dispatch(doSetTimerState(newState))
+    }
+  }
+}
+
+const RRComponent = connect(mapStateToProps, mapDispatchToProps)(Timer)
+
+class AppWrapper extends React.Component{
+  
+  render(){
+    return(
+      <Provider store={store}>
+        <RRComponent/>
+      </Provider>
+    )
+  }
+}
+
+ReactDOM.render(<AppWrapper/>, document.getElementById("app"));
